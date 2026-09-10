@@ -97,8 +97,8 @@ def _extract_pdf_with_ocr(file_path: str) -> list:
                     import easyocr
                     ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
 
-                # Render page to image at 300 DPI for good OCR quality
-                pix = page.get_pixmap(dpi=300)
+                # Render page to image at 100 DPI for faster OCR processing (sacrifices slight accuracy for massive speedup)
+                pix = page.get_pixmap(dpi=100)
                 img_bytes = pix.tobytes("png")
 
                 import io
@@ -178,6 +178,16 @@ def _is_complex_query(query: str) -> bool:
     q = query.lower()
     return any(kw in q for kw in complex_keywords) or len(query.split()) > 20
 
+def _is_general_query(query: str, llm) -> bool:
+    """Fast check to see if query is general knowledge vs document-dependent."""
+    system = "You are a smart router. Does this user query ask a general knowledge/programming question (e.g. 'what is machine learning', 'write a function') where you should reply 'GENERAL', or does it refer to specific uploaded documents/data (e.g. 'summarize this', 'what does the report say') where you should reply 'DOCUMENT'? Reply with exactly one word: 'GENERAL' or 'DOCUMENT'."
+    try:
+        from langchain_core.messages import HumanMessage, SystemMessage
+        res = llm.invoke([SystemMessage(content=system), HumanMessage(content=query)])
+        return "GENERAL" in res.content.upper()
+    except Exception as e:
+        logger.warning(f"Routing error: {e}")
+        return False
 
 # ─── Hybrid Query Engine ──────────────────────────────────────────────────────
 def query_documents(query: str, mode: str = "auto") -> dict:
@@ -187,6 +197,18 @@ def query_documents(query: str, mode: str = "auto") -> dict:
     llm = llm_primary if _is_complex_query(query) else llm_reasoning
     model_name = "GPT-OSS 120B (Max)" if llm == llm_primary else "GPT-OSS 20B (Fast)"
     logger.info(f"Selected model: {model_name}")
+
+    # Smart Routing for Auto Mode
+    is_general = False
+    if mode == "general":
+        is_general = True
+    elif mode == "auto":
+        is_general = _is_general_query(query, llm_reasoning)
+        logger.info(f"Auto Router classified query as: {'GENERAL' if is_general else 'DOCUMENT'}")
+
+    if is_general:
+        answer = _general_ai_answer(query, llm)
+        return {"answer": answer, "mode_used": "general", "sources": [], "model": model_name}
 
     # Retrieve docs
     relevant_docs = []
@@ -199,9 +221,8 @@ def query_documents(query: str, mode: str = "auto") -> dict:
     except Exception as e:
         logger.warning(f"Retrieval error: {e}")
 
-    has_context = len(relevant_docs) > 0
-
-    if mode == "general" or (mode == "auto" and not has_context):
+    if not relevant_docs:
+        # Fallback if DB is totally empty
         answer = _general_ai_answer(query, llm)
         return {"answer": answer, "mode_used": "general", "sources": [], "model": model_name}
 

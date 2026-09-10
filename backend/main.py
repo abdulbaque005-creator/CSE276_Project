@@ -113,6 +113,15 @@ async def delete_document(doc_id: int, db: Session = Depends(get_db)):
     file_path = os.path.join(UPLOAD_DIR, doc.filename)
     if os.path.exists(file_path):
         os.remove(file_path)
+
+    # Clean up from vector store
+    try:
+        from rag_pipeline import vector_store
+        if hasattr(vector_store, "_collection"):
+            vector_store._collection.delete(where={"source": doc.filename})
+    except Exception as e:
+        print(f"Error deleting from chroma: {e}")
+
     db.delete(doc)
     db.commit()
     return {"message": "Deleted"}
