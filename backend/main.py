@@ -1,15 +1,44 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-import shutil, os
+import shutil, os, jwt
+from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_db, DocumentMeta, ChatHistory
+from database import get_db, DocumentMeta, ChatHistory, User
 from rag_pipeline import process_document, query_documents
 
 app = FastAPI(title="DocuMind AI API", version="2.0.0")
+
+# ─── Auth Setup ──────────────────────────────────────────────────────────────
+SECRET_KEY = "supersecretkey_change_in_production"
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid auth token")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid auth token")
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -28,6 +57,36 @@ class QueryRequest(BaseModel):
     query: str
     mode: Optional[str] = "auto"   # "auto" | "docs" | "general"
 
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+
+# ─── Auth Routes ─────────────────────────────────────────────────────────────
+@app.post("/auth/register")
+async def register(request: AuthRequest, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == request.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    new_user = User(email=request.email, password_hash=get_password_hash(request.password))
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    token = jwt.encode({"sub": new_user.id}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token, "email": new_user.email}
+
+@app.post("/auth/login")
+async def login(request: AuthRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user or not verify_password(request.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    token = jwt.encode({"sub": user.id}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token, "email": user.email}
+
+@app.get("/auth/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    return {"email": current_user.email, "id": current_user.id}
+
 # ─── Health Check ─────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -35,22 +94,22 @@ async def health():
 
 # ─── Upload ───────────────────────────────────────────────────────────────────
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     allowed = (".pdf", ".txt")
     if not file.filename.lower().endswith(allowed):
         raise HTTPException(status_code=400, detail="Only PDF and TXT files are supported.")
 
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    file_path = os.path.join(UPLOAD_DIR, f"{current_user.id}_{file.filename}")
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        result = process_document(file_path, file.filename)
+        result = process_document(file_path, file.filename, user_id=current_user.id)
     except Exception as e:
         os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
-    db_doc = DocumentMeta(filename=file.filename)
+    db_doc = DocumentMeta(filename=file.filename, user_id=current_user.id)
     db.add(db_doc)
     db.commit()
     db.refresh(db_doc)
@@ -65,16 +124,16 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
 
 # ─── Query ────────────────────────────────────────────────────────────────────
 @app.post("/query")
-async def query_doc(request: QueryRequest, db: Session = Depends(get_db)):
+async def query_doc(request: QueryRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     try:
-        result = query_documents(request.query, mode=request.mode or "auto")
+        result = query_documents(request.query, mode=request.mode or "auto", user_id=current_user.id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
 
-    chat_entry = ChatHistory(question=request.query, answer=result["answer"])
+    chat_entry = ChatHistory(question=request.query, answer=result["answer"], user_id=current_user.id)
     db.add(chat_entry)
     db.commit()
     db.refresh(chat_entry)
@@ -89,16 +148,16 @@ async def query_doc(request: QueryRequest, db: Session = Depends(get_db)):
 
 # ─── History & Documents ──────────────────────────────────────────────────────
 @app.get("/history")
-async def get_history(db: Session = Depends(get_db)):
-    return db.query(ChatHistory).order_by(ChatHistory.created_at.desc()).limit(50).all()
+async def get_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(ChatHistory).filter(ChatHistory.user_id == current_user.id).order_by(ChatHistory.created_at.desc()).limit(50).all()
 
 @app.get("/documents")
-async def get_documents(db: Session = Depends(get_db)):
-    return db.query(DocumentMeta).order_by(DocumentMeta.uploaded_at.desc()).all()
+async def get_documents(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(DocumentMeta).filter(DocumentMeta.user_id == current_user.id).order_by(DocumentMeta.uploaded_at.desc()).all()
 
 @app.delete("/history/{history_id}")
-async def delete_history(history_id: int, db: Session = Depends(get_db)):
-    item = db.query(ChatHistory).filter(ChatHistory.id == history_id).first()
+async def delete_history(history_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item = db.query(ChatHistory).filter(ChatHistory.id == history_id, ChatHistory.user_id == current_user.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
     db.delete(item)
@@ -106,11 +165,11 @@ async def delete_history(history_id: int, db: Session = Depends(get_db)):
     return {"message": "Deleted"}
 
 @app.delete("/documents/{doc_id}")
-async def delete_document(doc_id: int, db: Session = Depends(get_db)):
-    doc = db.query(DocumentMeta).filter(DocumentMeta.id == doc_id).first()
+async def delete_document(doc_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    doc = db.query(DocumentMeta).filter(DocumentMeta.id == doc_id, DocumentMeta.user_id == current_user.id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
-    file_path = os.path.join(UPLOAD_DIR, doc.filename)
+    file_path = os.path.join(UPLOAD_DIR, f"{current_user.id}_{doc.filename}")
     if os.path.exists(file_path):
         os.remove(file_path)
 
@@ -118,7 +177,7 @@ async def delete_document(doc_id: int, db: Session = Depends(get_db)):
     try:
         from rag_pipeline import vector_store
         if hasattr(vector_store, "_collection"):
-            vector_store._collection.delete(where={"source": doc.filename})
+            vector_store._collection.delete(where={"$and": [{"source": doc.filename}, {"user_id": current_user.id}]})
     except Exception as e:
         print(f"Error deleting from chroma: {e}")
 

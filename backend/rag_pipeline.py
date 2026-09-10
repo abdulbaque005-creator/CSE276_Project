@@ -121,7 +121,7 @@ def _extract_pdf_with_ocr(file_path: str) -> list:
     return pages
 
 
-def process_document(file_path: str, filename: str) -> dict:
+def process_document(file_path: str, filename: str, user_id: int = None) -> dict:
     logger.info(f"Processing: {filename}")
 
     from langchain_core.documents import Document
@@ -139,7 +139,7 @@ def process_document(file_path: str, filename: str) -> dict:
         docs = [
             Document(
                 page_content=p["text"],
-                metadata={"source": filename, "page": p["page"]}
+                metadata={"source": filename, "page": p["page"], "user_id": user_id or 0}
             )
             for p in extracted_pages
         ]
@@ -148,6 +148,7 @@ def process_document(file_path: str, filename: str) -> dict:
         docs = loader.load()
         for doc in docs:
             doc.metadata["source"] = filename
+            doc.metadata["user_id"] = user_id or 0
 
     # Hierarchical chunking
     text_splitter = RecursiveCharacterTextSplitter(
@@ -190,7 +191,7 @@ def _is_general_query(query: str, llm) -> bool:
         return False
 
 # ─── Hybrid Query Engine ──────────────────────────────────────────────────────
-def query_documents(query: str, mode: str = "auto") -> dict:
+def query_documents(query: str, mode: str = "auto", user_id: int = None) -> dict:
     logger.info(f"Query [mode={mode}]: {query[:100]}")
 
     # Choose model based on query complexity
@@ -213,9 +214,13 @@ def query_documents(query: str, mode: str = "auto") -> dict:
     # Retrieve docs
     relevant_docs = []
     try:
+        search_kwargs = {"k": 6}
+        if user_id is not None:
+            search_kwargs["filter"] = {"user_id": user_id}
+
         retriever = vector_store.as_retriever(
             search_type="similarity",
-            search_kwargs={"k": 6},
+            search_kwargs=search_kwargs,
         )
         relevant_docs = retriever.invoke(query)
     except Exception as e:

@@ -5,6 +5,7 @@
 const API = 'https://bd86f95c021725.lhr.life';
 let queryMode = 'auto';
 let isLoading = false;
+let authToken = localStorage.getItem('documind_token') || null;
 
 // ── Configure marked ─────────────────────────────────────────────
 marked.setOptions({ breaks: true, gfm: true });
@@ -47,6 +48,123 @@ const themeToggleBtn= $('theme-toggle-btn');
 const sunIcon       = themeToggleBtn.querySelector('.sun-icon');
 const moonIcon      = themeToggleBtn.querySelector('.moon-icon');
 
+// ── Auth Logic ───────────────────────────────────────────────────
+const authOverlay = document.getElementById('auth-overlay');
+const authForm = document.getElementById('auth-form');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const authToggleMode = document.getElementById('auth-toggle-mode');
+const authTitle = document.getElementById('auth-title');
+const authToggleMsg = document.getElementById('auth-toggle-msg');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const signoutBtn = document.getElementById('signout-btn');
+const userEmailDisplay = document.getElementById('user-email-display');
+let isSignUpMode = false;
+
+authToggleMode.addEventListener('click', () => {
+  isSignUpMode = !isSignUpMode;
+  if (isSignUpMode) {
+    authTitle.textContent = 'Create an account';
+    authToggleMsg.textContent = 'Already have an account?';
+    authToggleMode.textContent = 'Sign in';
+    authSubmitBtn.textContent = 'Sign Up with Email';
+  } else {
+    authTitle.textContent = 'Welcome to DocuMind AI';
+    authToggleMsg.textContent = 'Don\'t have an account?';
+    authToggleMode.textContent = 'Sign up';
+    authSubmitBtn.textContent = 'Sign In with Email';
+  }
+});
+
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const endpoint = isSignUpMode ? '/auth/register' : '/auth/login';
+  const email = authEmail.value;
+  const password = authPassword.value;
+
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.textContent = 'Please wait...';
+
+  try {
+    const res = await fetch(`${API}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      authToken = data.token;
+      localStorage.setItem('documind_token', authToken);
+      userEmailDisplay.textContent = data.email;
+      
+      authOverlay.classList.remove('active');
+      showToast('Successfully logged in!', 'success');
+      
+      checkHealth(); // load data
+    } else {
+      const err = await res.json();
+      showToast(err.detail || 'Authentication failed', 'error');
+    }
+  } catch {
+    showToast('Cannot connect to server.', 'error');
+  } finally {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.textContent = isSignUpMode ? 'Sign Up with Email' : 'Sign In with Email';
+  }
+});
+
+if (signoutBtn) {
+  signoutBtn.addEventListener('click', () => {
+    authToken = null;
+    localStorage.removeItem('documind_token');
+    documentList.innerHTML = '<li class="side-empty-item">No documents yet</li>';
+    historyList.innerHTML = '<li class="side-empty-item">No history yet</li>';
+    messages.innerHTML = '';
+    if (welcomeState) {
+      messages.appendChild(welcomeState);
+      welcomeState.style.display = '';
+    }
+    authOverlay.classList.add('active');
+  });
+}
+
+window.mockProviderLogin = function(provider) {
+  showToast(`${provider} login is coming soon! Please use Email for now.`, 'info');
+};
+
+async function apiFetch(path, options = {}) {
+  if (!options.headers) options.headers = {};
+  if (authToken) Object.assign(options.headers, { 'Authorization': `Bearer ${authToken}` });
+  
+  const res = await fetch(`${API}${path}`, options);
+  if (res.status === 401) {
+    authToken = null;
+    localStorage.removeItem('documind_token');
+    authOverlay.classList.add('active');
+  }
+  return res;
+}
+
+// Check initial auth state
+if (!authToken) {
+  authOverlay.classList.add('active');
+} else {
+  // Validate token
+  apiFetch('/auth/me').then(async res => {
+    if (res.ok) {
+      const data = await res.json();
+      userEmailDisplay.textContent = data.email;
+      authOverlay.classList.remove('active');
+      checkHealth();
+    } else {
+      authOverlay.classList.add('active');
+    }
+  }).catch(() => {
+    authOverlay.classList.add('active');
+  });
+}
+
 // ── Mode Labels Map ───────────────────────────────────────────────
 const modeLabels = {
   auto:    'Auto mode — uses your documents + AI knowledge',
@@ -56,8 +174,9 @@ const modeLabels = {
 
 // ── Health Check & Status ─────────────────────────────────────────
 async function checkHealth() {
+  if (!authToken) return;
   try {
-    const res = await fetch(`${API}/health`, { signal: AbortSignal.timeout(4000) });
+    const res = await apiFetch('/health', { signal: AbortSignal.timeout(4000) });
     if (res.ok) {
       statusPill.className = 'status-pill online';
       statusText.textContent = 'Connected';
@@ -72,7 +191,6 @@ async function checkHealth() {
 }
 
 setInterval(checkHealth, 8000);
-checkHealth();
 
 // ── Mode Toggle ───────────────────────────────────────────────────
 modeBtns.forEach(btn => {
@@ -162,7 +280,7 @@ chatForm.addEventListener('submit', async e => {
   const typingId = appendTyping();
 
   try {
-    const res = await fetch(`${API}/query`, {
+    const res = await apiFetch('/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, mode: queryMode }),
@@ -330,7 +448,7 @@ async function handleUpload(file) {
       setProgress(Math.round(prog), 'Processing document…');
     }, 400);
 
-    const res = await fetch(`${API}/upload`, { method: 'POST', body: formData });
+    const res = await apiFetch('/upload', { method: 'POST', body: formData });
 
     clearInterval(ticker);
 
@@ -360,7 +478,7 @@ function setProgress(pct, msg) {
 // ── Load Documents ────────────────────────────────────────────────
 async function loadDocuments() {
   try {
-    const res = await fetch(`${API}/documents`);
+    const res = await apiFetch('/documents');
     if (!res.ok) return;
     const docs = await res.json();
     documentList.innerHTML = '';
@@ -380,7 +498,7 @@ async function loadDocuments() {
       li.title = doc.filename;
       li.querySelector('.delete-btn').addEventListener('click', async e => {
         e.stopPropagation();
-        await fetch(`${API}/documents/${doc.id}`, { method: 'DELETE' });
+        await apiFetch(`/documents/${doc.id}`, { method: 'DELETE' });
         showToast(`"${doc.filename}" removed.`, 'info');
         loadDocuments();
       });
@@ -392,7 +510,7 @@ async function loadDocuments() {
 // ── Load History ──────────────────────────────────────────────────
 async function loadHistory() {
   try {
-    const res = await fetch(`${API}/history`);
+    const res = await apiFetch('/history');
     if (!res.ok) return;
     const items = await res.json();
     historyList.innerHTML = '';
@@ -413,7 +531,7 @@ async function loadHistory() {
       li.title = item.question;
       li.querySelector('.delete-btn').addEventListener('click', async e => {
         e.stopPropagation();
-        await fetch(`${API}/history/${item.id}`, { method: 'DELETE' });
+        await apiFetch(`/history/${item.id}`, { method: 'DELETE' });
         loadHistory();
       });
       // Click to replay
@@ -430,9 +548,9 @@ async function loadHistory() {
 // ── Clear Chat ────────────────────────────────────────────────────
 clearChatBtn.addEventListener('click', async () => {
   try {
-    const res = await fetch(`${API}/history`);
+    const res = await apiFetch('/history');
     const items = await res.json();
-    await Promise.all(items.map(i => fetch(`${API}/history/${i.id}`, { method: 'DELETE' })));
+    await Promise.all(items.map(i => apiFetch(`/history/${i.id}`, { method: 'DELETE' })));
     loadHistory();
     showToast('Chat history cleared.', 'info');
   } catch {
