@@ -114,3 +114,5 @@ Open your tunnel address on your mobile with this QR:
 [7m  [0m[49m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[49m  [0m[7m  [0m[49m  [0m[49m  [0m[7m  [0m[7m  [0m[49m  [0m[49m  [0m[7m  [0m[49m  [0m[49m  [0m[7m  [0m[7m  [0m[49m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m
 [7m  [0m[49m  [0m[49m  [0m[49m  [0m[49m  [0m[49m  [0m[49m  [0m[49m  [0m[7m  [0m[49m  [0m[7m  [0m[49m  [0m[49m  [0m[49m  [0m[49m  [0m[7m  [0m[49m  [0m[7m  [0m[7m  [0m[49m  [0m[7m  [0m[7m  [0m[7m  [0m[49m  [0m[49m  [0m[49m  [0m[7m  [0m
 [7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m[7m  [0m
+Received disconnect from 54.82.85.249 port 22:11: tunnel inactivity timeout
+Disconnected from 54.82.85.249 port 22
