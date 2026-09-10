@@ -7,7 +7,7 @@ anyio==4.15.1
 attrs==26.1.0
 bcrypt==5.0.0
 build==1.6.0
-certifi==2026.7.22
+certifi
 cffi==2.1.1
 charset-normalizer==3.5.1
 chromadb==1.5.9
@@ -24,7 +24,7 @@ filelock==3.32.6
 filetype==1.2.0
 flatbuffers==25.12.19
 frozenlist==1.8.0
-fsspec==2026.7.0
+fsspec
 google-auth==2.57.1
 google-genai==2.22.0
 googleapis-common-protos==1.75.3
@@ -109,12 +109,12 @@ python-dotenv==1.2.3
 python-multipart==0.0.32
 PyYAML==6.0.3
 referencing==0.37.0
-regex==2026.9.3
+regex
 requests==2.34.2
 requests-oauthlib==2.0.0
 requests-toolbelt==1.0.0
 rich==15.0.0
-rpds-py==2026.6.3
+rpds-py
 safetensors==0.8.0
 scikit-image
 scikit-learn
@@ -130,7 +130,7 @@ starlette==1.6.0
 sympy==1.14.0
 tenacity==9.1.4
 threadpoolctl==3.6.0
-tifffile==2026.9.9
+tifffile
 tokenizers==0.23.2
 torch
 torchvision
