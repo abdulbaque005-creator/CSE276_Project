@@ -56,48 +56,62 @@ const authUsername = document.getElementById('auth-username');
 const authSubmitBtn = document.getElementById('auth-submit-btn');
 const signoutBtn = document.getElementById('signout-btn');
 const userEmailDisplay = document.getElementById('user-email-display');
+const authStep1 = document.getElementById('auth-step-1');
+const authStep2 = document.getElementById('auth-step-2');
+const welcomeNameEl = document.getElementById('welcome-name');
+const confirmYesBtn = document.getElementById('confirm-yes-btn');
+const confirmNoBtn = document.getElementById('confirm-no-btn');
 
-authForm.addEventListener('submit', async (e) => {
+let pendingUsername = '';
+
+// Step 1: User types name and presses Enter or clicks Continue
+authForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const username = authUsername.value.trim();
   if (!username) return;
 
-  authSubmitBtn.disabled = true;
-  authSubmitBtn.textContent = 'Please wait...';
+  pendingUsername = username;
+  welcomeNameEl.textContent = `Welcome, ${username}! 👋`;
+  authStep1.style.display = 'none';
+  authStep2.style.display = '';
+});
 
-  try {
-    const res = await fetch(`${API}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-      body: JSON.stringify({ username })
-    });
-    
+// Step 2a: User confirms "Yes, let's go!"
+confirmYesBtn.addEventListener('click', () => {
+  // Store username locally — instant entry, no backend needed
+  localStorage.setItem('documind_username', pendingUsername);
+  userEmailDisplay.textContent = pendingUsername;
+  authOverlay.classList.remove('active');
+  showToast(`Welcome, ${pendingUsername}! 🎉`, 'success');
+
+  // Silently authenticate with backend in the background
+  fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+    body: JSON.stringify({ username: pendingUsername })
+  }).then(async res => {
     if (res.ok) {
       const data = await res.json();
       authToken = data.token;
       localStorage.setItem('documind_token', authToken);
-      userEmailDisplay.textContent = data.username;
-      
-      authOverlay.classList.remove('active');
-      showToast('Successfully logged in!', 'success');
-      
-      checkHealth(); // load data
-    } else {
-      const err = await res.json();
-      showToast(err.detail || 'Authentication failed', 'error');
     }
-  } catch {
-    showToast('Cannot connect to server.', 'error');
-  } finally {
-    authSubmitBtn.disabled = false;
-    authSubmitBtn.textContent = 'Start Chatting';
-  }
+  }).catch(() => { /* will retry on first API call */ });
+
+  checkHealth();
+});
+
+// Step 2b: User clicks "Change name" — go back to step 1
+confirmNoBtn.addEventListener('click', () => {
+  authStep2.style.display = 'none';
+  authStep1.style.display = '';
+  authUsername.focus();
 });
 
 if (signoutBtn) {
   signoutBtn.addEventListener('click', () => {
     authToken = null;
     localStorage.removeItem('documind_token');
+    localStorage.removeItem('documind_username');
     documentList.innerHTML = '<li class="side-empty-item">No documents yet</li>';
     historyList.innerHTML = '<li class="side-empty-item">No history yet</li>';
     messages.innerHTML = '';
@@ -105,11 +119,11 @@ if (signoutBtn) {
       messages.appendChild(welcomeState);
       welcomeState.style.display = '';
     }
+    authStep2.style.display = 'none';
+    authStep1.style.display = '';
     authOverlay.classList.add('active');
   });
 }
-
-// Firebase login removed
 
 async function apiFetch(path, options = {}) {
   if (!options.headers) options.headers = {};
@@ -118,6 +132,25 @@ async function apiFetch(path, options = {}) {
   
   const res = await fetch(`${API}${path}`, options);
   if (res.status === 401) {
+    // Token expired or missing — try to re-authenticate silently
+    const savedName = localStorage.getItem('documind_username');
+    if (savedName) {
+      try {
+        const loginRes = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+          body: JSON.stringify({ username: savedName })
+        });
+        if (loginRes.ok) {
+          const data = await loginRes.json();
+          authToken = data.token;
+          localStorage.setItem('documind_token', authToken);
+          // Retry the original request with new token
+          options.headers['Authorization'] = `Bearer ${authToken}`;
+          return fetch(`${API}${path}`, options);
+        }
+      } catch {}
+    }
     authToken = null;
     localStorage.removeItem('documind_token');
     authOverlay.classList.add('active');
@@ -126,22 +159,43 @@ async function apiFetch(path, options = {}) {
 }
 
 // Check initial auth state
-if (!authToken) {
+const savedUsername = localStorage.getItem('documind_username');
+if (!authToken && !savedUsername) {
   authOverlay.classList.add('active');
-} else {
-  // Validate token
-  apiFetch('/auth/me').then(async res => {
-    if (res.ok) {
-      const data = await res.json();
-      userEmailDisplay.textContent = data.username;
+} else if (savedUsername) {
+  userEmailDisplay.textContent = savedUsername;
+  if (authToken) {
+    // Validate existing token
+    apiFetch('/auth/me').then(async res => {
+      if (res.ok) {
+        authOverlay.classList.remove('active');
+        checkHealth();
+      } else {
+        authOverlay.classList.add('active');
+      }
+    }).catch(() => {
+      // Backend might be down, but let user in anyway with stored name
       authOverlay.classList.remove('active');
       checkHealth();
-    } else {
-      authOverlay.classList.add('active');
-    }
-  }).catch(() => {
-    authOverlay.classList.add('active');
-  });
+    });
+  } else {
+    // No token but has username — let them in and auth silently
+    authOverlay.classList.remove('active');
+    fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+      body: JSON.stringify({ username: savedUsername })
+    }).then(async res => {
+      if (res.ok) {
+        const data = await res.json();
+        authToken = data.token;
+        localStorage.setItem('documind_token', authToken);
+      }
+    }).catch(() => {});
+    checkHealth();
+  }
+} else {
+  authOverlay.classList.add('active');
 }
 
 // ── Mode Labels Map ───────────────────────────────────────────────

@@ -23,16 +23,33 @@
   <!-- ── Auth Overlay ────────────────────────────────────────── -->
   <div id="auth-overlay" class="auth-overlay">
     <div class="auth-card">
-      <div class="auth-header">
-        <img src="logo.jpg" alt="DocuMind AI" class="auth-logo">
-        <h2 id="auth-title">Welcome to DocuMind AI</h2>
-        <p id="auth-subtitle">Enter a username to start chatting.</p>
+      <!-- Step 1: Enter Name -->
+      <div id="auth-step-1">
+        <div class="auth-header">
+          <img src="logo.jpg" alt="DocuMind AI" class="auth-logo">
+          <h2 id="auth-title">Welcome to DocuMind AI</h2>
+          <p id="auth-subtitle">What should we call you?</p>
+        </div>
+        
+        <form id="auth-form" class="auth-form">
+          <input type="text" id="auth-username" placeholder="Your name (e.g. Abdul Baque)" required autocomplete="off">
+          <button type="submit" class="auth-btn email-btn" id="auth-submit-btn">Continue</button>
+        </form>
       </div>
-      
-      <form id="auth-form" class="auth-form">
-        <input type="text" id="auth-username" placeholder="Your name (e.g. John Doe)" required autocomplete="off">
-        <button type="submit" class="auth-btn email-btn" id="auth-submit-btn">Start Chatting</button>
-      </form>
+
+      <!-- Step 2: Confirm Name -->
+      <div id="auth-step-2" style="display: none;">
+        <div class="auth-header">
+          <img src="logo.jpg" alt="DocuMind AI" class="auth-logo">
+          <h2 id="welcome-name">Welcome, User! 👋</h2>
+          <p>Is this correct?</p>
+        </div>
+        
+        <div class="auth-form" style="gap: 12px; display: flex; flex-direction: column;">
+          <button class="auth-btn email-btn" id="confirm-yes-btn">Yes, let's go! 🚀</button>
+          <button class="auth-btn" id="confirm-no-btn" style="background: transparent; border: 1px solid var(--c-border); color: var(--c-text-secondary);">Change name</button>
+        </div>
+      </div>
     </div>
   </div>
 
