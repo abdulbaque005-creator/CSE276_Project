@@ -2,21 +2,7 @@
    DocuMind AI  ·  app.js
    ════════════════════════════════════════════════════ */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDX9wXRlW1j0l3SpZX_31LGGhf86DHKYpM",
-  authDomain: "cse276-project.firebaseapp.com",
-  projectId: "cse276-project",
-  storageBucket: "cse276-project.firebasestorage.app",
-  messagingSenderId: "69148864753",
-  appId: "1:69148864753:web:0471d58f114965d8f2f950",
-  measurementId: "G-8SPRH2CXDC"
-};
-const firebaseApp = initializeApp(firebaseConfig);
-const firebaseAuth = getAuth(firebaseApp);
-
+// Firebase removed
 const API = 'https://documind-api-cse276.loca.lt';
 let queryMode = 'auto';
 let isLoading = false;
@@ -66,52 +52,28 @@ const moonIcon      = themeToggleBtn.querySelector('.moon-icon');
 // ── Auth Logic ───────────────────────────────────────────────────
 const authOverlay = document.getElementById('auth-overlay');
 const authForm = document.getElementById('auth-form');
-const authEmail = document.getElementById('auth-email');
-const authPassword = document.getElementById('auth-password');
-const authToggleMode = document.getElementById('auth-toggle-mode');
-const authTitle = document.getElementById('auth-title');
-const authToggleMsg = document.getElementById('auth-toggle-msg');
-const authSubmitBtn = document.getElementById('auth-submit-btn');
-const signoutBtn = document.getElementById('signout-btn');
-const userEmailDisplay = document.getElementById('user-email-display');
-let isSignUpMode = false;
-
-authToggleMode.addEventListener('click', () => {
-  isSignUpMode = !isSignUpMode;
-  if (isSignUpMode) {
-    authTitle.textContent = 'Create an account';
-    authToggleMsg.textContent = 'Already have an account?';
-    authToggleMode.textContent = 'Sign in';
-    authSubmitBtn.textContent = 'Sign Up with Email';
-  } else {
-    authTitle.textContent = 'Welcome to DocuMind AI';
-    authToggleMsg.textContent = 'Don\'t have an account?';
-    authToggleMode.textContent = 'Sign up';
-    authSubmitBtn.textContent = 'Sign In with Email';
-  }
-});
+const authUsername = document.getElementById('auth-username');
 
 authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const endpoint = isSignUpMode ? '/auth/register' : '/auth/login';
-  const email = authEmail.value;
-  const password = authPassword.value;
+  const username = authUsername.value.trim();
+  if (!username) return;
 
   authSubmitBtn.disabled = true;
   authSubmitBtn.textContent = 'Please wait...';
 
   try {
-    const res = await fetch(`${API}${endpoint}`, {
+    const res = await fetch(`${API}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ username })
     });
     
     if (res.ok) {
       const data = await res.json();
       authToken = data.token;
       localStorage.setItem('documind_token', authToken);
-      userEmailDisplay.textContent = data.email;
+      userEmailDisplay.textContent = data.username;
       
       authOverlay.classList.remove('active');
       showToast('Successfully logged in!', 'success');
@@ -125,7 +87,7 @@ authForm.addEventListener('submit', async (e) => {
     showToast('Cannot connect to server.', 'error');
   } finally {
     authSubmitBtn.disabled = false;
-    authSubmitBtn.textContent = isSignUpMode ? 'Sign Up with Email' : 'Sign In with Email';
+    authSubmitBtn.textContent = 'Start Chatting';
   }
 });
 
@@ -144,58 +106,7 @@ if (signoutBtn) {
   });
 }
 
-window.googleLogin = async function() {
-  const provider = new GoogleAuthProvider();
-  try {
-    const result = await signInWithPopup(firebaseAuth, provider);
-    const idToken = await result.user.getIdToken();
-    await handleFirebaseLogin(idToken);
-  } catch (error) {
-    showToast(error.message, 'error');
-  }
-};
-
-window.phoneLogin = async function() {
-  const phoneNumber = prompt("Enter your phone number (e.g. +1234567890):");
-  if (!phoneNumber) return;
-  try {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
-    }
-    const confirmationResult = await signInWithPhoneNumber(firebaseAuth, phoneNumber, window.recaptchaVerifier);
-    const code = prompt("Enter the verification code sent to your phone:");
-    if (!code) return;
-    const result = await confirmationResult.confirm(code);
-    const idToken = await result.user.getIdToken();
-    await handleFirebaseLogin(idToken);
-  } catch (error) {
-    showToast(error.message, 'error');
-  }
-};
-
-async function handleFirebaseLogin(idToken) {
-  try {
-    const res = await fetch(`${API}/auth/firebase`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-      body: JSON.stringify({ id_token: idToken })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      authToken = data.token;
-      localStorage.setItem('documind_token', authToken);
-      userEmailDisplay.textContent = data.email;
-      authOverlay.classList.remove('active');
-      showToast('Successfully logged in!', 'success');
-      checkHealth();
-    } else {
-      const err = await res.json();
-      showToast(err.detail || 'Authentication failed', 'error');
-    }
-  } catch {
-    showToast('Cannot connect to server.', 'error');
-  }
-}
+// Firebase login removed
 
 async function apiFetch(path, options = {}) {
   if (!options.headers) options.headers = {};
@@ -219,7 +130,7 @@ if (!authToken) {
   apiFetch('/auth/me').then(async res => {
     if (res.ok) {
       const data = await res.json();
-      userEmailDisplay.textContent = data.email;
+      userEmailDisplay.textContent = data.username;
       authOverlay.classList.remove('active');
       checkHealth();
     } else {
