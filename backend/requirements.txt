@@ -151,6 +151,8 @@ xxhash==4.0.1
 yarl==1.24.5
 zstandard==0.25.0
 psycopg2-binary==2.9.13
+passlib
+firebase-admin
 pinecone-client==6.0.0
 langchain-pinecone==0.2.13
 PyJWT
