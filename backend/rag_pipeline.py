@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_community.vectorstores import Chroma
+from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_classic.chains import create_retrieval_chain
@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-CHROMA_PATH = "./chroma_db"
+
+# ─── Configure Pinecone ──────────────────────────────────────────────────────
+os.environ["PINECONE_API_KEY"] = "pcsk_2ptkdX_PMxhRQckynoyxhsXqfi15pTedk5LA8NUFn79uEuknhPhnL5oVnbMrYT9i1vQKX4"
 
 # ─── Ultra-Smart LLM Setup ────────────────────────────────────────────────────
 # Primary: 120B parameter model — maximum intelligence available
@@ -73,7 +75,7 @@ def _init_embeddings():
     return FakeEmbeddings(size=384)
 
 embeddings = _init_embeddings()
-vector_store = Chroma(embedding_function=embeddings, persist_directory=CHROMA_PATH)
+vector_store = PineconeVectorStore(index_name="documind", embedding=embeddings)
 
 
 # ─── Document Processing (with OCR for scanned PDFs) ─────────────────────────

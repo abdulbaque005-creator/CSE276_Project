@@ -203,10 +203,9 @@ async def delete_document(doc_id: int, db: Session = Depends(get_db), current_us
     # Clean up from vector store
     try:
         from rag_pipeline import vector_store
-        if hasattr(vector_store, "_collection"):
-            vector_store._collection.delete(where={"$and": [{"source": doc.filename}, {"user_id": current_user.id}]})
+        vector_store.delete(filter={"user_id": current_user.id, "source": doc.filename})
     except Exception as e:
-        print(f"Error deleting from chroma: {e}")
+        print(f"Error deleting from vector store: {e}")
 
     db.delete(doc)
     db.commit()

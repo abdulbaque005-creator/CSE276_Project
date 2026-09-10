@@ -3,10 +3,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
+# SQLALCHEMY_DATABASE_URL = "sqlite:///./documind.db"
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://documind_db_k8ph_user:5BazgnDFcvESWq4NpDhEMoPEE6qhM1jf@dpg-dah6jfajnfac738hcvn0-a.oregon-postgres.render.com/documind_db_k8ph"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
