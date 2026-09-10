@@ -17,7 +17,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const firebaseAuth = getAuth(firebaseApp);
 
-const API = 'https://bd86f95c021725.lhr.life';
+const API = 'https://documind-api-cse276.loca.lt';
 let queryMode = 'auto';
 let isLoading = false;
 let authToken = localStorage.getItem('documind_token') || null;
@@ -103,7 +103,7 @@ authForm.addEventListener('submit', async (e) => {
   try {
     const res = await fetch(`${API}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
       body: JSON.stringify({ email, password })
     });
     
@@ -177,7 +177,7 @@ async function handleFirebaseLogin(idToken) {
   try {
     const res = await fetch(`${API}/auth/firebase`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
       body: JSON.stringify({ id_token: idToken })
     });
     if (res.ok) {
@@ -200,6 +200,7 @@ async function handleFirebaseLogin(idToken) {
 async function apiFetch(path, options = {}) {
   if (!options.headers) options.headers = {};
   if (authToken) Object.assign(options.headers, { 'Authorization': `Bearer ${authToken}` });
+  Object.assign(options.headers, { 'Bypass-Tunnel-Reminder': 'true' });
   
   const res = await fetch(`${API}${path}`, options);
   if (res.status === 401) {
