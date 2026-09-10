@@ -3,7 +3,7 @@
    ════════════════════════════════════════════════════ */
 
 // Firebase removed
-const API = 'https://importance-bidder-household-friendly.trycloudflare.com';
+const API = 'https://64b64c08396730.lhr.life';
 let queryMode = 'auto';
 let isLoading = false;
 let authToken = localStorage.getItem('documind_token') || null;
