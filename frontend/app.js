@@ -2,7 +2,7 @@
    DocuMind AI  ·  app.js
    ════════════════════════════════════════════════════ */
 
-const API = 'http://localhost:8000';
+const API = 'https://ea10b605dbdb6e.lhr.life';
 let queryMode = 'auto';
 let isLoading = false;
 
