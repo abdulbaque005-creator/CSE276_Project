@@ -74,8 +74,15 @@ def _init_embeddings():
     logger.warning("⚠️ Using FakeEmbeddings – install sentence-transformers for real search")
     return FakeEmbeddings(size=384)
 
-embeddings = _init_embeddings()
-vector_store = PineconeVectorStore(index_name="documind", embedding=embeddings)
+embeddings = None
+vector_store = None
+
+def get_vector_store():
+    global embeddings, vector_store
+    if vector_store is None:
+        embeddings = _init_embeddings()
+        vector_store = PineconeVectorStore(index_name="documind", embedding=embeddings)
+    return vector_store
 
 
 # ─── Document Processing (with OCR for scanned PDFs) ─────────────────────────
@@ -165,7 +172,8 @@ def process_document(file_path: str, filename: str, user_id: int = None) -> dict
             "Could not extract meaningful text chunks from this document."
         )
 
-    vector_store.add_documents(chunks)
+    vs = get_vector_store()
+    vs.add_documents(chunks)
     logger.info(f"Indexed {len(chunks)} chunks from {len(docs)} pages")
     return {"chunks": len(chunks), "pages": len(docs)}
 
@@ -220,7 +228,8 @@ def query_documents(query: str, mode: str = "auto", user_id: int = None) -> dict
         if user_id is not None:
             search_kwargs["filter"] = {"user_id": user_id}
 
-        retriever = vector_store.as_retriever(
+        vs = get_vector_store()
+        retriever = vs.as_retriever(
             search_type="similarity",
             search_kwargs=search_kwargs,
         )

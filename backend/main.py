@@ -202,8 +202,9 @@ async def delete_document(doc_id: int, db: Session = Depends(get_db), current_us
 
     # Clean up from vector store
     try:
-        from rag_pipeline import vector_store
-        vector_store.delete(filter={"user_id": current_user.id, "source": doc.filename})
+        from rag_pipeline import get_vector_store
+        vs = get_vector_store()
+        vs.delete(filter={"user_id": current_user.id, "source": doc.filename})
     except Exception as e:
         print(f"Error deleting from vector store: {e}")
 
