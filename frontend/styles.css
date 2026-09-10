@@ -48,7 +48,7 @@ html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font);
-  background: var(--c-bg);
+  background: radial-gradient(circle at top center, #150d30 0%, var(--c-bg) 70%);
   color: var(--c-text);
   height: 100dvh;
   overflow: hidden;
@@ -61,6 +61,11 @@ body {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  background-image: 
+    linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+  background-size: 50px 50px;
+  background-position: center top;
 }
 
 .orb {
@@ -113,10 +118,11 @@ body {
   flex-direction: column;
   gap: 18px;
   padding: 20px 16px;
-  background: rgba(13,17,23,.8);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-right: 1px solid var(--c-border);
+  background: rgba(13,17,23,.4);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-right: 1px solid rgba(255,255,255,.06);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.02);
   transition: transform .35s var(--ease), width .35s var(--ease);
   overflow: hidden;
 }
@@ -324,10 +330,10 @@ body {
   height: var(--header-h);
   display: flex; align-items: center; gap: 14px;
   padding: 0 24px;
-  background: rgba(8,11,20,.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid var(--c-border);
+  background: rgba(8,11,20,.4);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,.06);
   flex-shrink: 0;
 }
 
@@ -408,10 +414,16 @@ body {
 }
 
 .welcome-state h2 {
-  font-size: 1.6rem; font-weight: 700;
-  background: linear-gradient(90deg, var(--c-violet), var(--c-cyan));
+  font-size: 1.8rem; font-weight: 800;
+  background: linear-gradient(90deg, var(--c-violet), var(--c-cyan), var(--c-violet));
+  background-size: 200% auto;
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
+  animation: shine 4s linear infinite;
+  letter-spacing: -0.5px;
+}
+@keyframes shine {
+  to { background-position: 200% center; }
 }
 .welcome-state p { color: var(--c-text-2); font-size: .95rem; }
 
@@ -434,11 +446,11 @@ body {
   white-space: nowrap;
 }
 .chip:hover {
-  border-color: var(--c-violet);
-  background: rgba(139,92,246,.12);
-  color: var(--c-text);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--c-violet-glow);
+  border-color: var(--c-cyan);
+  background: rgba(34,211,238,.12);
+  color: #fff;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(34,211,238,.25), inset 0 0 10px rgba(34,211,238,.1);
 }
 
 /* Message Bubbles */
@@ -486,6 +498,7 @@ body {
   background: linear-gradient(135deg, var(--c-violet), var(--c-violet-dark));
   border-top-right-radius: 5px;
   color: #fff;
+  box-shadow: 0 10px 25px rgba(139,92,246,.25);
 }
 
 /* Markdown inside bubbles */
@@ -677,8 +690,8 @@ body {
 }
 .send-btn:not(:disabled):hover {
   background: var(--c-violet-dark);
-  transform: scale(1.08);
-  box-shadow: 0 0 24px var(--c-violet-glow);
+  transform: scale(1.12);
+  box-shadow: 0 0 30px var(--c-violet), 0 0 10px var(--c-cyan);
 }
 .send-btn:not(:disabled):active { transform: scale(.96); }
 
