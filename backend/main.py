@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -90,34 +90,51 @@ async def health():
     return {"status": "online", "version": "2.0.0"}
 
 # ─── Upload ───────────────────────────────────────────────────────────────────
-@app.post("/upload")
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    allowed = (".pdf", ".txt")
-    if not file.filename.lower().endswith(allowed):
-        raise HTTPException(status_code=400, detail="Only PDF and TXT files are supported.")
+@app.post("/upload_chunk")
+async def upload_chunk(
+    chunk: UploadFile = File(...), 
+    filename: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    temp_dir = os.path.join(UPLOAD_DIR, "temp", str(current_user.id))
+    os.makedirs(temp_dir, exist_ok=True)
+    chunk_path = os.path.join(temp_dir, f"{filename}.part{chunk_index}")
+    
+    with open(chunk_path, "wb") as buffer:
+        shutil.copyfileobj(chunk.file, buffer)
+        
+    if chunk_index == total_chunks - 1:
+        final_path = os.path.join(UPLOAD_DIR, f"{current_user.id}_{filename}")
+        with open(final_path, "wb") as final_file:
+            for i in range(total_chunks):
+                part_path = os.path.join(temp_dir, f"{filename}.part{i}")
+                with open(part_path, "rb") as part_file:
+                    shutil.copyfileobj(part_file, final_file)
+                os.remove(part_path)
+                
+        try:
+            result = process_document(final_path, filename, user_id=current_user.id)
+        except Exception as e:
+            if os.path.exists(final_path):
+                os.remove(final_path)
+            raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
-    file_path = os.path.join(UPLOAD_DIR, f"{current_user.id}_{file.filename}")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        db_doc = DocumentMeta(filename=filename, user_id=current_user.id)
+        db.add(db_doc)
+        db.commit()
+        db.refresh(db_doc)
 
-    try:
-        result = process_document(file_path, file.filename, user_id=current_user.id)
-    except Exception as e:
-        os.remove(file_path)
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
-
-    db_doc = DocumentMeta(filename=file.filename, user_id=current_user.id)
-    db.add(db_doc)
-    db.commit()
-    db.refresh(db_doc)
-
-    return {
-        "message": "Document processed successfully!",
-        "filename": file.filename,
-        "chunks": result["chunks"],
-        "pages": result["pages"],
-        "document_id": db_doc.id,
-    }
+        return {
+            "message": "Document processed successfully!",
+            "filename": filename,
+            "chunks": result["chunks"],
+            "pages": result["pages"],
+            "document_id": db_doc.id,
+        }
+    return {"message": "Chunk received"}
 
 # ─── Query ────────────────────────────────────────────────────────────────────
 @app.post("/query")

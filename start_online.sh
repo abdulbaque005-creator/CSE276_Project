@@ -8,7 +8,7 @@ cd backend
 
 # Clean up any old running instances
 pkill -f "uvicorn main:app" 2>/dev/null
-pkill -f "localtunnel" 2>/dev/null
+pkill -f "localhost.run" 2>/dev/null
 sleep 1
 
 # Start the Python Backend
@@ -19,7 +19,19 @@ sleep 3
 
 echo "🌐 Creating Secure Internet Tunnel..."
 # Create a secure tunnel so the world can reach the local backend
-URL="https://documind-api-cse276.loca.lt"
+ssh -o StrictHostKeyChecking=accept-new -R 80:localhost:8000 nokey@localhost.run > tunnel_url.txt 2>&1 &
+
+# Wait for tunnel to connect
+sleep 8
+URL=$(grep -o 'https://[^ ]*\.lhr\.life' tunnel_url.txt | head -n 1)
+
+if [ -z "$URL" ]; then
+    echo "❌ Failed to create internet tunnel. Please try running the script again in a minute."
+    exit 1
+fi
+
+echo "✅ Secure Tunnel created: $URL"
+echo "🔄 Updating your GitHub Website..."
 
 cd ../frontend
 # Update app.js to point to the new live tunnel URL
@@ -43,5 +55,5 @@ echo "As long as this window is open, your friend can use the AI."
 echo "Press Ctrl+C when you want to turn the server off."
 echo "=========================================================="
 
-# Run localtunnel in the foreground
-npx localtunnel --port 8000 --subdomain documind-api-cse276
+# Keep script running
+wait

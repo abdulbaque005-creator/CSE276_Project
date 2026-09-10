@@ -470,35 +470,48 @@ async function handleUpload(file) {
   progressFilename.textContent = file.name;
   setProgress(10, 'Uploading…');
 
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    // Simulate progress
-    let prog = 10;
-    const ticker = setInterval(() => {
-      prog = Math.min(prog + Math.random() * 12, 80);
-      setProgress(Math.round(prog), 'Processing document…');
-    }, 400);
+    const CHUNK_SIZE = 500 * 1024; // 500KB chunk size to bypass tunnel limits
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let finalRes = null;
 
-    const res = await apiFetch('/upload', { method: 'POST', body: formData });
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+      
+      const formData = new FormData();
+      formData.append('chunk', chunk);
+      formData.append('filename', file.name);
+      formData.append('chunk_index', i);
+      formData.append('total_chunks', totalChunks);
 
-    clearInterval(ticker);
+      // Update progress proportionally (10% to 50% during upload)
+      setProgress(10 + Math.round((i / totalChunks) * 40), `Uploading part ${i+1}/${totalChunks}…`);
 
-    if (res.ok) {
-      const data = await res.json();
+      const res = await apiFetch('/upload_chunk', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Upload failed');
+      }
+      
+      if (i === totalChunks - 1) {
+        finalRes = res;
+      }
+    }
+
+    setProgress(70, 'Processing document…');
+
+    if (finalRes && finalRes.ok) {
+      const data = await finalRes.json();
       setProgress(100, `Done! ${data.chunks} chunks indexed.`);
       showToast(`"${file.name}" uploaded — ${data.chunks} chunks ready!`, 'success');
       loadDocuments();
       setTimeout(closeUploadModal, 1400);
-    } else {
-      const err = await res.json();
-      setProgress(0, `Error: ${err.detail}`);
-      showToast(err.detail || 'Upload failed.', 'error');
     }
-  } catch {
-    setProgress(0, 'Cannot connect to server.');
-    showToast('Cannot connect to server. Is the backend running?', 'error');
+  } catch (err) {
+    setProgress(0, 'Upload error.');
+    showToast(err.message || 'Cannot connect to server. Is the backend running?', 'error');
   }
 }
 
