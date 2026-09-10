@@ -43,6 +43,9 @@ const newChatBtn    = $('new-chat-btn');
 const clearChatBtn  = $('clear-chat-btn');
 const chips         = document.querySelectorAll('.chip');
 const toastContainer= $('toast-container');
+const themeToggleBtn= $('theme-toggle-btn');
+const sunIcon       = themeToggleBtn.querySelector('.sun-icon');
+const moonIcon      = themeToggleBtn.querySelector('.moon-icon');
 
 // ── Mode Labels Map ───────────────────────────────────────────────
 const modeLabels = {
@@ -84,6 +87,32 @@ modeBtns.forEach(btn => {
 
 // ── Sidebar Toggle ────────────────────────────────────────────────
 sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('hidden'));
+
+// ── Theme Toggle ──────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'light') {
+  document.documentElement.classList.add('light-theme');
+  document.body.classList.add('light-theme');
+  sunIcon.style.display = 'none';
+  moonIcon.style.display = 'block';
+}
+
+themeToggleBtn.addEventListener('click', () => {
+  const isLight = document.body.classList.toggle('light-theme');
+  document.documentElement.classList.toggle('light-theme');
+  
+  if (isLight) {
+    sunIcon.style.display = 'none';
+    moonIcon.style.display = 'block';
+    localStorage.setItem('theme', 'light');
+    showToast('Switched to Light Theme', 'info');
+  } else {
+    sunIcon.style.display = 'block';
+    moonIcon.style.display = 'none';
+    localStorage.setItem('theme', 'dark');
+    showToast('Switched to Dark Theme', 'info');
+  }
+});
 
 // ── Textarea Auto-resize & Send Enable ───────────────────────────
 queryInput.addEventListener('input', () => {
