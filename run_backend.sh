@@ -9,9 +9,9 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
     lsof -Pi :8000 -sTCP:LISTEN -t | xargs kill -9
 fi
 
-# Start uvicorn in the background
+# Start uvicorn in the background using the virtual environment
 echo "Starting Uvicorn Server..."
-uvicorn main:app --host 0.0.0.0 --port 8000 &
+venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 &
 UVICORN_PID=$!
 
 # Make sure we kill uvicorn when this script exits
