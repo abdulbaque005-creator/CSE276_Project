@@ -153,3 +153,4 @@ zstandard==0.25.0
 psycopg2-binary==2.9.13
 pinecone-client==6.0.0
 langchain-pinecone==0.2.13
+PyJWT
