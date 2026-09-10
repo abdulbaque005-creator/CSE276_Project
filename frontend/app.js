@@ -53,6 +53,9 @@ const moonIcon      = themeToggleBtn.querySelector('.moon-icon');
 const authOverlay = document.getElementById('auth-overlay');
 const authForm = document.getElementById('auth-form');
 const authUsername = document.getElementById('auth-username');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const signoutBtn = document.getElementById('signout-btn');
+const userEmailDisplay = document.getElementById('user-email-display');
 
 authForm.addEventListener('submit', async (e) => {
   e.preventDefault();
