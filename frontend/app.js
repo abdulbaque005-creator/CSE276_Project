@@ -504,8 +504,8 @@ async function handleUpload(file) {
 
     if (finalRes && finalRes.ok) {
       const data = await finalRes.json();
-      setProgress(100, `Done! ${data.chunks} chunks indexed.`);
-      showToast(`"${file.name}" uploaded — ${data.chunks} chunks ready!`, 'success');
+      setProgress(100, `Done! Document uploaded successfully.`);
+      showToast(`"${file.name}" uploaded successfully! The AI is analyzing it in the background. It will be ready in a minute.`, 'success');
       loadDocuments();
       setTimeout(closeUploadModal, 1400);
     }

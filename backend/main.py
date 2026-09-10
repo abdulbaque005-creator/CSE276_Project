@@ -90,8 +90,22 @@ async def health():
     return {"status": "online", "version": "2.0.0"}
 
 # ─── Upload ───────────────────────────────────────────────────────────────────
+from fastapi import BackgroundTasks
+
+def background_process(final_path: str, filename: str, user_id: int, db_doc_id: int, db: Session):
+    try:
+        from rag_pipeline import process_document
+        process_document(final_path, filename, user_id=user_id)
+        # We could update the DB doc status here if we added a status field
+    except Exception as e:
+        print(f"Background processing failed for {filename}: {e}")
+    finally:
+        # Keep the file for debugging or remove it if desired
+        pass
+
 @app.post("/upload_chunk")
 async def upload_chunk(
+    background_tasks: BackgroundTasks,
     chunk: UploadFile = File(...), 
     filename: str = Form(...),
     chunk_index: int = Form(...),
@@ -115,23 +129,18 @@ async def upload_chunk(
                     shutil.copyfileobj(part_file, final_file)
                 os.remove(part_path)
                 
-        try:
-            result = process_document(final_path, filename, user_id=current_user.id)
-        except Exception as e:
-            if os.path.exists(final_path):
-                os.remove(final_path)
-            raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
-
         db_doc = DocumentMeta(filename=filename, user_id=current_user.id)
         db.add(db_doc)
         db.commit()
         db.refresh(db_doc)
 
+        background_tasks.add_task(background_process, final_path, filename, current_user.id, db_doc.id, db)
+
         return {
-            "message": "Document processed successfully!",
+            "message": "Document uploaded and processing in background!",
             "filename": filename,
-            "chunks": result["chunks"],
-            "pages": result["pages"],
+            "chunks": "Your document is",
+            "pages": "Processing",
             "document_id": db_doc.id,
         }
     return {"message": "Chunk received"}
