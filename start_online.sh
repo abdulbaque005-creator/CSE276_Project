@@ -9,6 +9,7 @@ cd backend
 # Clean up any old running instances
 pkill -f "uvicorn main:app" 2>/dev/null
 pkill -f "localhost.run" 2>/dev/null
+pkill -f "cloudflared" 2>/dev/null
 sleep 1
 
 # Start the Python Backend
@@ -18,12 +19,22 @@ echo "✅ Backend running locally."
 sleep 3
 
 echo "🌐 Creating Secure Internet Tunnel..."
-# Create a secure tunnel so the world can reach the local backend
-ssh -o StrictHostKeyChecking=accept-new -R 80:localhost:8000 nokey@localhost.run > tunnel_url.txt 2>&1 &
+# Check if cloudflared is installed, if not download it
+cd ..
+if [ ! -f "./cloudflared" ]; then
+    echo "Downloading Cloudflared for secure tunneling..."
+    curl -sL -o cloudflared.tgz "https://github.com/cloudflare/cloudflared/releases/download/2026.9.0/cloudflared-darwin-arm64.tgz"
+    tar -xzf cloudflared.tgz
+    chmod +x cloudflared
+    rm cloudflared.tgz
+fi
+
+# Create a secure tunnel using Cloudflare
+./cloudflared tunnel --url http://localhost:8000 > tunnel_url.txt 2>&1 &
 
 # Wait for tunnel to connect
 sleep 8
-URL=$(grep -o 'https://[^ ]*\.lhr\.life' tunnel_url.txt | head -n 1)
+URL=$(grep -o 'https://[^ ]*\.trycloudflare\.com' tunnel_url.txt | head -n 1)
 
 if [ -z "$URL" ]; then
     echo "❌ Failed to create internet tunnel. Please try running the script again in a minute."
@@ -33,7 +44,7 @@ fi
 echo "✅ Secure Tunnel created: $URL"
 echo "🔄 Updating your GitHub Website..."
 
-cd ../frontend
+cd frontend
 # Update app.js to point to the new live tunnel URL
 sed -i '' "s|const API = '.*';|const API = '$URL';|" app.js
 
