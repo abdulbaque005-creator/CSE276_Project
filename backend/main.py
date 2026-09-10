@@ -126,7 +126,7 @@ async def query_doc(request: QueryRequest, db: Session = Depends(get_db), curren
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     try:
-        result = query_documents(request.query, mode=request.mode or "auto", user_id=current_user.id)
+        result = query_documents(request.query, mode=request.mode or "auto", user_id=current_user.id, username=current_user.username)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
 

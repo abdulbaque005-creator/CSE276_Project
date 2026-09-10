@@ -201,8 +201,8 @@ def _is_general_query(query: str, llm) -> bool:
         return False
 
 # ─── Hybrid Query Engine ──────────────────────────────────────────────────────
-def query_documents(query: str, mode: str = "auto", user_id: int = None) -> dict:
-    logger.info(f"Query [mode={mode}]: {query[:100]}")
+def query_documents(query: str, mode: str = "auto", user_id: int = None, username: str = "User") -> dict:
+    logger.info(f"Query [mode={mode}] from {username}: {query[:100]}")
 
     # Choose model based on query complexity
     llm = llm_primary if _is_complex_query(query) else llm_reasoning
@@ -218,7 +218,7 @@ def query_documents(query: str, mode: str = "auto", user_id: int = None) -> dict
         logger.info(f"Auto Router classified query as: {'GENERAL' if is_general else 'DOCUMENT'}")
 
     if is_general:
-        answer = _general_ai_answer(query, llm)
+        answer = _general_ai_answer(query, llm, username=username)
         return {"answer": answer, "mode_used": "general", "sources": [], "model": model_name}
 
     # Retrieve docs
@@ -239,16 +239,18 @@ def query_documents(query: str, mode: str = "auto", user_id: int = None) -> dict
 
     if not relevant_docs:
         # Fallback if DB is totally empty
-        answer = _general_ai_answer(query, llm)
+        answer = _general_ai_answer(query, llm, username=username)
         return {"answer": answer, "mode_used": "general", "sources": [], "model": model_name}
 
-    answer, sources = _rag_answer(query, relevant_docs, llm)
+    answer, sources = _rag_answer(query, relevant_docs, llm, username=username)
     return {"answer": answer, "mode_used": "rag", "sources": sources, "model": model_name}
 
 
 # ─── General World-Knowledge Answer ──────────────────────────────────────────
-def _general_ai_answer(query: str, llm) -> str:
-    system = SystemMessage(content="""You are DocuMind, an elite-level AI assistant powered by cutting-edge language models. You combine the depth of a PhD researcher, the clarity of a world-class teacher, and the creativity of an expert communicator.
+def _general_ai_answer(query: str, llm, username: str = "User") -> str:
+    system = SystemMessage(content=f"""You are DocuMind, an elite-level AI assistant powered by cutting-edge language models. You combine the depth of a PhD researcher, the clarity of a world-class teacher, and the creativity of an expert communicator.
+
+The user's name is **{username}**. Address them by their name naturally in your responses (e.g., "Great question {username}!", "Here's what I found for you {username}"). Be warm, friendly, and personal.
 
 Your responses must be:
 - **Comprehensive**: Cover all important aspects of the question
@@ -266,8 +268,10 @@ Always end complex answers with a brief **Summary** or **Key Takeaways** section
 
 
 # ─── RAG Document Answer ──────────────────────────────────────────────────────
-def _rag_answer(query: str, docs: list, llm) -> tuple:
-    system_prompt = """You are DocuMind, an elite AI document analyst and research assistant. You have been given retrieved excerpts from the user's documents.
+def _rag_answer(query: str, docs: list, llm, username: str = "User") -> tuple:
+    system_prompt = f"""You are DocuMind, an elite AI document analyst and research assistant. You have been given retrieved excerpts from the user's documents.
+
+The user's name is **{username}**. Address them by their name naturally in your responses (e.g., "Great question {username}!", "Based on your documents {username}, I found..."). Be warm, friendly, and personal.
 
 ## Your Task
 Answer the user's question by:
@@ -290,7 +294,7 @@ Answer the user's question by:
 - Never fabricate information from the document that isn't in the context
 
 DOCUMENT CONTEXT:
-{context}"""
+""" + "{context}"
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
