@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_db, DocumentMeta, ChatHistory, User
+from database import get_db, DocumentMeta, ChatHistory, User, engine, Base
 from rag_pipeline import process_document, query_documents
 
 import firebase_admin
@@ -16,6 +16,12 @@ from firebase_admin import auth as firebase_auth
 firebase_admin.initialize_app(options={"projectId": "cse276-project"})
 
 app = FastAPI(title="DocuMind AI API", version="2.0.0")
+
+@app.on_event("startup")
+def on_startup():
+    print("Starting up: Connecting to database and creating tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database connected successfully!")
 
 # ─── Auth Setup ──────────────────────────────────────────────────────────────
 SECRET_KEY = "supersecretkey_change_in_production"

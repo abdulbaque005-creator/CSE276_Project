@@ -45,8 +45,8 @@ class ChatHistory(Base):
 
     owner = relationship("User", back_populates="history")
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Create tables (moved to main.py startup event to prevent blocking uvicorn port bind)
+# Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
