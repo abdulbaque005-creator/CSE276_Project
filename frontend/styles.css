@@ -59,6 +59,10 @@
   --c-border:      rgba(0,0,0,.08);
   --c-border-h:    rgba(139,92,246,.3);
 
+  --c-violet:      #7c3aed;
+  --c-cyan:        #0284c7;
+  --c-emerald:     #059669;
+
   --c-text:        #0f172a;
   --c-text-2:      #475569;
   --c-text-3:      #94a3b8;
@@ -485,10 +489,15 @@ body.light-theme .bg-canvas {
 }
 .chip:hover {
   border-color: var(--c-cyan);
-  background: rgba(34,211,238,.12);
+  background: var(--c-cyan);
   color: #fff;
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(34,211,238,.25), inset 0 0 10px rgba(34,211,238,.1);
+  box-shadow: 0 6px 20px rgba(34,211,238,.25), inset 0 0 10px rgba(255,255,255,.1);
+}
+body.light-theme .chip:hover {
+  background: rgba(2,132,199,.1);
+  color: var(--c-cyan);
+  box-shadow: 0 4px 15px rgba(2,132,199,.15);
 }
 
 /* Message Bubbles */
@@ -599,7 +608,8 @@ body.light-theme .bg-canvas {
   font-size: .7rem; font-weight: 500;
 }
 .mode-badge.rag { background: rgba(139,92,246,.15); color: var(--c-violet); border: 1px solid rgba(139,92,246,.3); }
-.mode-badge.general { background: rgba(245,158,11,.1); color: var(--c-amber); border: 1px solid rgba(245,158,11,.3); }
+.mode-badge.general { background: rgba(245,158,11,.15); color: var(--c-amber); border: 1px solid rgba(245,158,11,.3); }
+body.light-theme .mode-badge.general { color: #d97706; }
 
 .copy-btn {
   margin-left: auto;
