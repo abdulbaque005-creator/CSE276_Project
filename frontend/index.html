@@ -29,14 +29,15 @@
       </div>
       
       <div class="auth-buttons">
-        <button class="auth-btn google-btn" type="button" onclick="window.mockProviderLogin('Google')">
+        <button class="auth-btn google-btn" type="button" onclick="window.googleLogin()">
           <img src="https://cdn-icons-png.flaticon.com/512/300/300221.png" alt="Google">
           Continue with Google
         </button>
-        <button class="auth-btn phone-btn" type="button" onclick="window.mockProviderLogin('Phone')">
+        <button class="auth-btn phone-btn" type="button" onclick="window.phoneLogin()">
           <img src="https://cdn-icons-png.flaticon.com/512/15/15874.png" alt="Phone">
           Continue with Phone
         </button>
+        <div id="recaptcha-container"></div>
       </div>
 
       <div class="auth-divider"><span>OR</span></div>
@@ -237,6 +238,6 @@
 
   <!-- ── Markdown renderer (lightweight) ─────────────────────── -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

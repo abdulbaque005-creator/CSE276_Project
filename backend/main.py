@@ -11,6 +11,10 @@ from typing import Optional
 from database import get_db, DocumentMeta, ChatHistory, User
 from rag_pipeline import process_document, query_documents
 
+import firebase_admin
+from firebase_admin import auth as firebase_auth
+firebase_admin.initialize_app(options={"projectId": "cse276-project"})
+
 app = FastAPI(title="DocuMind AI API", version="2.0.0")
 
 # ─── Auth Setup ──────────────────────────────────────────────────────────────
@@ -29,13 +33,13 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_email: str = payload.get("sub")
+        if user_email is None:
             raise HTTPException(status_code=401, detail="Invalid auth token")
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid auth token")
         
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.email == user_email).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -61,6 +65,9 @@ class AuthRequest(BaseModel):
     email: str
     password: str
 
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
+
 # ─── Auth Routes ─────────────────────────────────────────────────────────────
 @app.post("/auth/register")
 async def register(request: AuthRequest, db: Session = Depends(get_db)):
@@ -75,13 +82,33 @@ async def register(request: AuthRequest, db: Session = Depends(get_db)):
     return {"token": token, "email": new_user.email}
 
 @app.post("/auth/login")
-async def login(request: AuthRequest, db: Session = Depends(get_db)):
+def login(request: AuthRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
-    if not user or not verify_password(request.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
-    token = jwt.encode({"sub": user.id}, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode({"sub": user.email}, SECRET_KEY, algorithm=ALGORITHM)
     return {"token": token, "email": user.email}
+
+@app.post("/auth/firebase")
+def login_with_firebase(request: FirebaseLoginRequest, db: Session = Depends(get_db)):
+    try:
+        decoded_token = firebase_auth.verify_id_token(request.id_token)
+        email = decoded_token.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Firebase token has no email")
+            
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(email=email)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+        token = jwt.encode({"sub": user.email}, SECRET_KEY, algorithm=ALGORITHM)
+        return {"token": token, "email": user.email}
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Firebase token: {str(e)}")
 
 @app.get("/auth/me")
 async def get_me(current_user: User = Depends(get_current_user)):

@@ -2,6 +2,21 @@
    DocuMind AI  ·  app.js
    ════════════════════════════════════════════════════ */
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDX9wXRlW1j0l3SpZX_31LGGhf86DHKYpM",
+  authDomain: "cse276-project.firebaseapp.com",
+  projectId: "cse276-project",
+  storageBucket: "cse276-project.firebasestorage.app",
+  messagingSenderId: "69148864753",
+  appId: "1:69148864753:web:0471d58f114965d8f2f950",
+  measurementId: "G-8SPRH2CXDC"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const firebaseAuth = getAuth(firebaseApp);
+
 const API = 'https://bd86f95c021725.lhr.life';
 let queryMode = 'auto';
 let isLoading = false;
@@ -129,9 +144,58 @@ if (signoutBtn) {
   });
 }
 
-window.mockProviderLogin = function(provider) {
-  showToast(`${provider} login is coming soon! Please use Email for now.`, 'info');
+window.googleLogin = async function() {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(firebaseAuth, provider);
+    const idToken = await result.user.getIdToken();
+    await handleFirebaseLogin(idToken);
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
 };
+
+window.phoneLogin = async function() {
+  const phoneNumber = prompt("Enter your phone number (e.g. +1234567890):");
+  if (!phoneNumber) return;
+  try {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+    }
+    const confirmationResult = await signInWithPhoneNumber(firebaseAuth, phoneNumber, window.recaptchaVerifier);
+    const code = prompt("Enter the verification code sent to your phone:");
+    if (!code) return;
+    const result = await confirmationResult.confirm(code);
+    const idToken = await result.user.getIdToken();
+    await handleFirebaseLogin(idToken);
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+async function handleFirebaseLogin(idToken) {
+  try {
+    const res = await fetch(`${API}/auth/firebase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      authToken = data.token;
+      localStorage.setItem('documind_token', authToken);
+      userEmailDisplay.textContent = data.email;
+      authOverlay.classList.remove('active');
+      showToast('Successfully logged in!', 'success');
+      checkHealth();
+    } else {
+      const err = await res.json();
+      showToast(err.detail || 'Authentication failed', 'error');
+    }
+  } catch {
+    showToast('Cannot connect to server.', 'error');
+  }
+}
 
 async function apiFetch(path, options = {}) {
   if (!options.headers) options.headers = {};
