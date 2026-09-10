@@ -2,7 +2,7 @@
    DocuMind AI  ·  app.js
    ════════════════════════════════════════════════════ */
 
-const API = 'https://8a359d34107f13.lhr.life';
+const API = 'https://bd86f95c021725.lhr.life';
 let queryMode = 'auto';
 let isLoading = false;
 
