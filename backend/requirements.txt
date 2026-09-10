@@ -116,9 +116,9 @@ requests-toolbelt==1.0.0
 rich==15.0.0
 rpds-py==2026.6.3
 safetensors==0.8.0
-scikit-image==0.26.0
-scikit-learn==1.9.0
-scipy==1.18.1
+scikit-image
+scikit-learn
+scipy
 sentence-transformers==6.0.1
 setuptools==84.0.0
 shapely==2.1.2
@@ -132,8 +132,8 @@ tenacity==9.1.4
 threadpoolctl==3.6.0
 tifffile==2026.9.9
 tokenizers==0.23.2
-torch==2.14.0
-torchvision==0.29.0
+torch
+torchvision
 tqdm==4.70.0
 transformers==5.17.0
 truststore==0.10.4
